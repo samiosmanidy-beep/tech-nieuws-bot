@@ -25,6 +25,7 @@ jobs:
       - name: Script uitvoeren
         env:
           TECH_NIEUWS_WEBHOOK: ${{ secrets.TECH_NIEUWS_WEBHOOK }}
+                    GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python main.py
 
 
