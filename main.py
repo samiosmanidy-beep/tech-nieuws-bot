@@ -1,57 +1,60 @@
 import os
 import requests
+import google.generativeai as genai
 
 def get_top_stories():
-    """Haalt de top 5 verhalen op van Hacker News"""
+        try:
+                    top_stories_url = "https://hacker-news.firebaseio.com/v0/topstories.json"
+                    response = requests.get(top_stories_url)
+                    response.raise_for_status()
+                    story_ids = response.json()[:5]
+                    stories = []
+                    for story_id in story_ids:
+                                    story_res = requests.get(f"https://hacker-news.firebaseio.com/v0/item/{story_id}.json")
+                                    if story_res.status_code == 200:
+                                                        story_data = story_res.json()
+                                                        if story_data and "title" in story_data:
+                                                                                stories.append(story_data["title"])
+                                                                    return stories
+        except Exception as e:
+                    print(f"Fout: {e}")
+                    return []
+
+    def summarize_with_ai(stories):
+            api_key = os.environ.get("GEMINI_API_KEY")
+            if not api_key:
+                        return "GEMINI_API_KEY niet gevonden"
+                    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel("gemini-2.5-flash")
+    totaal_nieuws = "\n".join([f"- {title}" for title in stories])
+    prompt = f'''
+    Je krijgt hier de top 5 actuele koppen uit de tech-wereld (HackerNews):
+    {totaal_nieuws}
+
+    Jouw taak:
+    Maak hier een razendsnelle, fascinerende 'Tech Update' van. 
+    Kies de 3 allersterkste en meest interessante ontwikkelingen en vat die samen in exact 3 korte bulletpoints.
+
+    Regels:
+    - Elke bulletpoint mag maximaal 1 of 2 korte zinnen zijn.
+    - Het moet direct weglezen: "Bedrijf X heeft Y uitgevonden, waardoor Z nu makkelijker gaat."
+    - Geen langdradige inleidingen; kom direct ter zake. Leg boeiend maar kort uit wat de ontwikkeling is.
+    - Schrijf in het Nederlands, zonder sensatie, en gebruik geen web-links.
+    '''
     try:
-        top_stories_url = "https://hacker-news.firebaseio.com/v0/topstories.json"
-        response = requests.get(top_stories_url)
-        response.raise_for_status()
-        story_ids = response.json()[:5]
-
-        stories = []
-        for story_id in story_ids:
-            story_url = f"https://hacker-news.firebaseio.com/v0/item/{story_id}.json"
-            story_res = requests.get(story_url)
-            if story_res.status_code == 200:
-                story_data = story_res.json()
-                if story_data and "url" in story_data and "title" in story_data:
-                    stories.append(f"{story_data['title']}\n{story_data['url']}")
-        
-        return stories
+                response = model.generate_content(prompt)
+                return response.text
     except Exception as e:
-        print(f"Fout bij het ophalen van nieuws: {e}")
-        return []
+         return f"Error: {e}"
 
-def send_to_discord(stories):
-    """Verstuurt het nieuws direct via een Discord webhook"""
-    webhook_url = os.environ.get("TECH_NIEUWS_WEBHOOK")
-
-    if not webhook_url:
-        print("Fout: DISCORD_WEBHOOK_URL is niet ingesteld.")
-        return
-
-    content = "\n\n".join(stories)
-    if len(content) > 1900:
-        content = content[:1896] + "..."
-        
-    data = {
-        "content": content,
-        "username": "Tech Info"
-    }
-
-    try:
-        res = requests.post(webhook_url, json=data)
-        if res.status_code in [200, 204]:
-            print("Succesvol verstuurd naar Discord!")
-        else:
-            print(f"Kon niet versturen. Status code: {res.status_code}, Response: {res.text}")
-    except Exception as e:
-        print(f"Fout bij het versturen naar Discord: {e}")
+def send_to_discord(ai_text):
+        webhook_url = os.environ.get("TECH_NIEUWS_WEBHOOK")
+    if not webhook_url: return
+            content = f"** Tech Update **\n\n{ai_text}"
+    requests.post(webhook_url, json={"content": content, "username": "Tech Overzicht"})
 
 if __name__ == "__main__":
-    top_stories = get_top_stories()
-    if top_stories:
-        send_to_discord(top_stories)
-    else:
-        print("Geen nieuws gevonden om te versturen.")
+        top = get_top_stories()
+    if top:
+                txt = summarize_with_ai(top)
+                if txt: send_to_discord(txt)
