@@ -25,7 +25,7 @@ def get_top_stories():
 
 def send_to_discord(stories):
     """Verstuurt het nieuws direct via een Discord webhook"""
-webhook_url = os.environ.get("TECH_NIEUWS_WEBHOOK")
+    webhook_url = os.environ.get("TECH_NIEUWS_WEBHOOK")
 
     if not webhook_url:
         print("Fout: DISCORD_WEBHOOK_URL is niet ingesteld.")
