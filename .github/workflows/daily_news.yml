@@ -1,1 +1,4 @@
-.github/workflows/daily_news.yml
+name: Daily Tech News to Discord
+
+on:
+  schedule:
