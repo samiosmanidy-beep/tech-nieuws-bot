@@ -32,19 +32,19 @@ def summarize_with_ai(stories):
     totaal_nieuws = "\n".join([f"- {title}" for title in stories])
     
     prompt = f'''
-Je krijgt hier de top 5 actuele koppen uit de tech-wereld (HackerNews):
-{totaal_nieuws}
-
-Jouw taak:
-Maak hier een razendsnelle, fascinerende 'Tech Update' van. 
-Kies de 3 allersterkste en meest interessante ontwikkelingen en vat die samen in exact 3 korte bulletpoints.
-
-Regels:
-- Elke bulletpoint mag maximaal 1 of 2 korte zinnen zijn.
-- Het moet direct weglezen: "Bedrijf X heeft Y uitgevonden, waardoor Z nu makkelijker gaat."
-- Geen langdradige inleidingen; kom direct ter zake. Leg boeiend maar kort uit wát de ontwikkeling is.
-- Schrijf in het Nederlands, zonder sensatie, en gebruik geen web-links.
-'''
+    Je krijgt hier de top 5 actuele koppen uit de tech-wereld (HackerNews):
+    {totaal_nieuws}
+    
+    Jouw taak:
+    Maak hier een razendsnelle, fascinerende 'Tech Update' van. 
+    Vat ALLE 5 de koppen samen in exact 5 overzichtelijke bulletpoints.
+    
+    Regels:
+    - Begin elke bulletpoint met een krachtige, dikgedrukte **Subtitel** (bijv: **Apple Lanceert iPhone:**).
+    - Schrijf daarachter maximaal 1 of 2 korte zinnen over de ontwikkeling.
+    - Het moet direct weglezen in vlot Nederlands, zodat de lezer snel kan scannen.
+    - Schrijf zonder sensatie, en gebruik geen web-links.
+    '''
     try:
         response = model.generate_content(prompt)
         return response.text
