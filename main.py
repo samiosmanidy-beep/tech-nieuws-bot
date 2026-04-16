@@ -1,64 +1,90 @@
 import os
-import requests
 import google.generativeai as genai
+import requests
+import json
+from datetime import datetime
 
-DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-
-genai.configure(api_key=GEMINI_API_KEY)
+# Configuratie via GitHub Secrets (Environment Variables)
+DISCORD_WEBHOOK = os.getenv("DISCORD_WEBHOOK")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 def fetch_tech_news():
-        urls = [
-                    "https://www.reddit.com/r/technology/top.json?limit=6&t=day",
-                    "https://www.reddit.com/r/gadgets/top.json?limit=4&t=day"
-        ]
-
+    """Haalt de top 5 artikelen op van Hacker News."""
+    print("Nieuws ophalen van Hacker News...")
+    urls = [
+        "https://hacker-news.firebaseio.com/v0/topstories.json",
+        "https://hacker-news.firebaseio.com/v0/item/{}.json"
+    ]
     headers = {"User-Agent": "DiscordTechNewsBot/1.0"}
     articles = []
 
-    for url in urls:
-                response = requests.get(url, headers=headers)
-                if response.status_code == 200:
-                                data = response.json()
-                                posts = data.get('data', {}).get('children', [])
-                                for post in posts:
-                                                    title = post.get('data', {}).get('title', '')
-                                                    articles.append(f"- {title}")
+    try:
+        response = requests.get(urls[0], headers=headers)
+        response.raise_for_status()
+        top_ids = response.json()[:5]
 
-    return articles
+        for item_id in top_ids:
+            item_response = requests.get(urls[1].format(item_id), headers=headers)
+            item_response.raise_for_status()
+            item_data = item_response.json()
+            if "title" in item_data:
+                articles.append(item_data["title"])
+        
+        print(f"{len(articles)} artikelen gevonden.")
+        return articles
+    except Exception as e:
+        print(f"Fout bij het ophalen van nieuws: {e}")
+        return []
 
-def summarize_with_gemini(articles):
-        model = genai.GenerativeModel('gemini-1.5-flash') 
+def summarize_news(news_items):
+    """Vat de nieuwsberichten samen met Gemini AI in het Nederlands."""
+    if not GEMINI_API_KEY:
+        print("FOUT: GEMINI_API_KEY ontbreekt in de environment.")
+        return None
 
-    news_list = "\n".join(articles)
+    print("Samenvatting genereren met Gemini...")
+    genai.configure(api_key=GEMINI_API_KEY)
+    model = genai.GenerativeModel('gemini-1.5-flash')
 
     prompt = (
-                "Je bent een vriendelijke tech-nieuwslezer voor een Discord-kanaal. "
-                "Ik geef je een lijst met recente tech-nieuwtjes. "
-                "Kies de 4 a 5 meest interessante en 'algemene' tech-onderwerpen uit "
-                "(zoals nieuwe gadgets, robots, auto's, zonne-energie, AI of AR) "
-                "en schrijf hier een boeiende en feitelijke samenvatting van in vloeiend Nederlands.\n\n"
-                "Regels waaraan je MOET voldoen:\n"
-                "- Gebruik GEEN URL's of linkjes in je bericht.\n"
-                "- Maak er een leuk, samenhangend verhaal van met eventueel een paar gepaste emoji's.\n"
-                "- Vermeld geen bronnen of namen van de auteurs.\n\n"
-                f"Hier zijn de ruwe titels van vandaag:\n\n{news_list}"
+        "Vat de volgende 5 technieuws berichten van Hacker News samen in een kort, "
+        "feitelijk Nederlands rapport voor Discord. Gebruik maximaal 2000 tekens. "
+        "Gebruik GEEN links. Toon alleen de belangrijkste feiten.\n\n"
+        "Berichten:\n" + "\n".join(f"- {item}" for item in news_items)
     )
 
-    response = model.generate_content(prompt)
-    return response.text.strip()
+    try:
+        response = model.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        print(f"Fout bij het samenvatten: {e}")
+        return None
 
 def post_to_discord(content):
-        data = {"content": content, "username": "Daily Tech Flash"}
-        response = requests.post(DISCORD_WEBHOOK_URL, json=data)
+    """Verstuurt de samenvatting naar Discord."""
+    if not DISCORD_WEBHOOK:
+        print("FOUT: DISCORD_WEBHOOK ontbreekt in de environment.")
+        return
+
+    print("Bericht posten naar Discord...")
+    payload = {"content": content}
+    try:
+        response = requests.post(DISCORD_WEBHOOK, json=payload)
         response.raise_for_status()
-        print("Nieuws succesvol naar Discord gestuurd!")
+        print("Succesvol gepost naar Discord!")
+    except Exception as e:
+        print(f"Fout bij posten naar Discord: {e}")
 
 if __name__ == "__main__":
-        if not DISCORD_WEBHOOK_URL or not GEMINI_API_KEY:
-                    print("FOUT: DISCORD_WEBHOOK_URL en/of GEMINI_API_KEY missen!")
-                    exit(1)
-                news_items = fetch_tech_news()
-    if not news_items: exit(1)
-            summary = summarize_with_gemini(news_items)
-    post_to_discord(summary)
+    news_items = fetch_tech_news()
+    
+    if not news_items:
+        print("Geen nieuws gevonden. Script stopt.")
+        exit(1)
+    
+    summary = summarize_news(news_items)
+    
+    if summary:
+        post_to_discord(summary)
+    else:
+        print("Geen samenvatting gegenereerd.")
