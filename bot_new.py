@@ -3,23 +3,18 @@ import google.generativeai as genai
 import requests
 from datetime import datetime
 
-# Configuratie via GitHub Secrets (Environment Variables)
-DISCORD_WEBHOOK = os.getenv("DISCORD_WEBHOOK")
+# Configuratie via GitHub Secrets (Gekoppeld aan jouw YAML)
+DISCORD_WEBHOOK = os.getenv("TECH_NIEUWS_WEBHOOK")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 # Trefwoorden voor leuk en relevant nieuws
 LEUKE_ONDERWERPEN = [
-    # AI & Agents
     "ai", "artificial intelligence", "agent", "llm", "gpt", "claude", "gemini",
     "machine learning", "neural", "robot", "autopilot", "autonomous",
-    # Energie & Duurzaamheid
     "solar", "battery", "energy", "renewable", "fusion", "hydrogen", "electric",
-    # Ruimtevaart
     "space", "rocket", "nasa", "spacex", "satellite", "mars", "moon", "starship",
-    # Innovatie & Wetenschap
     "breakthrough", "invention", "innovation", "research", "scientists", "discovery",
     "quantum", "chip", "semiconductor", "drone", "biotech", "gene",
-    # Gadgets & Voertuigen
     "self-driving", "autonomous vehicle", "electric vehicle", "humanoid",
     "exoskeleton", "wearable", "augmented", "virtual reality", "vr", "ar",
 ]
@@ -32,7 +27,6 @@ SAAIE_ONDERWERPEN = [
     "vulnerability", "malware", "scam", "fraud",
 ]
 
-
 def fetch_tech_news():
     """Haalt artikelen op van Hacker News en filtert op leuke onderwerpen."""
     print("Nieuws ophalen van Hacker News...")
@@ -43,7 +37,7 @@ def fetch_tech_news():
     try:
         response = requests.get(f"{base_url}/topstories.json", headers=headers)
         response.raise_for_status()
-        top_ids = response.json()[:60]  # Top 60 ophalen om genoeg te filteren
+        top_ids = response.json()[:60]
 
         for item_id in top_ids:
             if len(articles) >= 8:
@@ -57,17 +51,14 @@ def fetch_tech_news():
 
             title_lower = item["title"].lower()
 
-            # Sla over als het een saai onderwerp is
             if any(saai in title_lower for saai in SAAIE_ONDERWERPEN):
                 continue
 
-            # Voeg toe als het een leuk onderwerp is
             if any(leuk in title_lower for leuk in LEUKE_ONDERWERPEN):
                 articles.append(item["title"])
 
         print(f"{len(articles)} leuke artikelen gevonden.")
 
-        # Fallback: als er te weinig zijn, pak de eerste 5 zonder filter
         if len(articles) < 3:
             print("Te weinig gefilterde artikelen, fallback naar top 5...")
             fallback = []
@@ -84,9 +75,8 @@ def fetch_tech_news():
         print(f"Fout bij het ophalen van nieuws: {e}")
         return []
 
-
 def summarize_news(news_items):
-    """Vat het nieuws samen met Gemini AI — leuk, enthousiast en in het Nederlands."""
+    """Vat het nieuws samen met Gemini AI."""
     if not GEMINI_API_KEY:
         print("FOUT: GEMINI_API_KEY ontbreekt.")
         return None
@@ -114,11 +104,10 @@ def summarize_news(news_items):
         print(f"Fout bij samenvatten: {e}")
         return None
 
-
 def post_to_discord(content):
     """Verstuurt de samenvatting naar Discord."""
     if not DISCORD_WEBHOOK:
-        print("FOUT: DISCORD_WEBHOOK ontbreekt.")
+        print("FOUT: TECH_NIEUWS_WEBHOOK ontbreekt.")
         return
 
     print("Bericht posten naar Discord...")
@@ -132,7 +121,6 @@ def post_to_discord(content):
         print("Succesvol gepost naar Discord!")
     except Exception as e:
         print(f"Fout bij posten naar Discord: {e}")
-
 
 if __name__ == "__main__":
     news_items = fetch_tech_news()
